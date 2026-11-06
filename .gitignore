@@ -1,0 +1,9 @@
+# build products
+tests/build/
+bench/build/
+bench/a25/build/
+# traces and results are local (docs/TESTING.md)
+bench/traces/
+bench/results/
+.DS_Store
+__pycache__/
