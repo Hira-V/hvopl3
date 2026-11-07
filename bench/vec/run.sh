@@ -32,7 +32,7 @@ cfg() { case $1 in
   *) echo "target?"; exit 1;;
 esac; }
 one() {
-  t=$1; tg=$2; cfg $tg; n=$(basename $t .hvo1); d=$(cd $(dirname $t) && pwd)/$(basename $t)
+  t=$1; tg=$2; cfg $tg; n=$(basename $t .hvo2); d=$(cd $(dirname $t) && pwd)/$(basename $t)
   printf '.section .rodata\n.balign 4\n.globl trace_bin\n.globl trace_end\ntrace_bin:\n.incbin "%s"\ntrace_end:\n' $d > $B/$tg/$n.S
   $G $M -mcmodel=medany -nostdlib -nostartfiles -T virt.ld $B/$tg/crt.o $B/$tg/digest.o $B/$tg/hvopl3.o $B/$tg/$n.S -Wl,--no-warn-rwx-segments -o $B/$tg/$n.elf 2>$B/$tg/$n.err || { echo "$n $tg NOLINK $(head -2 $B/$tg/$n.err)"; return; }
   ic=; [ -n "$COUNT" ] && ic="-icount shift=0"
@@ -46,8 +46,8 @@ one() {
   h=$($B/host $t | tr '\n' ' ')
   if [ "$h" = "$q" ]; then echo "$n $tg same $h"; else echo "$n $tg DIFF host: $h qemu: $q"; fi
 }
-if [ -n "$ONE" ]; then one $TARGETS $1 > $B/r.$(basename $TARGETS .hvo1).$1 2>/dev/null; exit 0; fi
-TRACES=${*:-$(ls $TR/*.hvo1)}
+if [ -n "$ONE" ]; then one $TARGETS $1 > $B/r.$(basename $TARGETS .hvo2).$1 2>/dev/null; exit 0; fi
+TRACES=${*:-$(ls $TR/*.hvo2)}
 c++ -std=gnu++20 -O2 -w -ffp-contract=off $X -I$SRC -I.. digest.cpp $SRC/hvopl3.cpp -o $B/host || exit 1
 QI=$(dirname $(dirname $(command -v qemu-system-riscv64)))/include
 [ -n "$COUNT" ] && [ -f $QI/qemu-plugin.h ] && cc -O2 -shared -fPIC -I$QI $(pkg-config --cflags glib-2.0 2>/dev/null) -undefined dynamic_lookup vcount.c -o $B/vcount.dylib

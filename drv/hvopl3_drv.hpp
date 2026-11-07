@@ -235,7 +235,7 @@ uint32_t render(Driver &, const Output &out, uint32_t frames);
 // (send the records, then call again for the rest). `capacity` must be at least stream_reserve().
 uint32_t render_stream(Driver &, uint32_t *records, uint32_t capacity, uint32_t &count, uint32_t frames);
 uint32_t stream_reserve(const Driver &);
-// hvopl3::play's flags, to replay a stream: the chips' (the config's, and NO_PAN_LAW with hard pan) and PLAY_HVO2.
+// hvopl3::play's flags, to replay a stream: the chips' (the config's, and NO_PAN_LAW with hard pan).
 uint32_t chip_flags(const Driver &);
 
 // The curve's attenuation for these four levels, in 0.75 dB steps (255: silent), as applied to a voice.

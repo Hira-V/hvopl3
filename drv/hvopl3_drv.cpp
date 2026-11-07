@@ -962,7 +962,7 @@ void chips_init(Driver &d) {
 	d.nslots = d.cfg.chips * CHANNELS;
 	for (uint32_t k = 0; k < d.cfg.chips; ++k) {
 		if (d.cfg.stream) emit(d, 4 | chip_bits(k));
-		init(d.chips[k], d.cfg.rate, chip_flags(d) & ~uint32_t(PLAY_HVO2));
+		init(d.chips[k], d.cfg.rate, chip_flags(d));
 		wr(d, k, 0x105, 1);
 		wr(d, k, 0x104, 0);
 		wr(d, k, 0x01, 0x20);
@@ -1246,7 +1246,7 @@ uint32_t run(Driver &d, uint32_t frames) {
 	if (d.pending & P_PANIC) { d.qn = 0; panic_all(d); }
 	if (d.pending & P_RESET) full_reset(d, false);
 	if (d.pending & P_FLAGS)
-		for (uint32_t k = 0; k < d.cfg.chips; ++k) { flush(d, k); set_flags(d.chips[k], chip_flags(d) & ~uint32_t(PLAY_HVO2)); }
+		for (uint32_t k = 0; k < d.cfg.chips; ++k) { flush(d, k); set_flags(d.chips[k], chip_flags(d)); }
 	if (d.pending & P_DEEP)
 		for (uint32_t k = 0; k < d.cfg.chips; ++k) wr(d, k, 0xBD, deep_bits(d));
 	if (d.pending & P_LEVELS)
@@ -1530,7 +1530,7 @@ uint32_t render_stream(Driver &d, uint32_t *records, uint32_t capacity, uint32_t
 	return n;
 }
 uint32_t attenuation(const Driver &d, uint8_t vel, uint8_t vol, uint8_t expr, uint8_t master) { return curve_steps(d, vel & 127, vol & 127, expr & 127, master & 127); }
-uint32_t chip_flags(const Driver &d) { return (d.cfg.chip_flags & ~uint32_t(PLAY_HVO2)) | (d.cfg.hard_pan ? uint32_t(NO_PAN_LAW) : 0u) | PLAY_HVO2; }
+uint32_t chip_flags(const Driver &d) { return d.cfg.chip_flags | (d.cfg.hard_pan ? uint32_t(NO_PAN_LAW) : 0u); }
 uint32_t stream_reserve(const Driver &d) { return d.cfg.chips * CHANNELS * 20 + d.cfg.chips * 8 + 64; }
 void reset(Driver &d) { d.pending |= P_RESET; }
 void panic(Driver &d) { d.pending |= P_PANIC; }

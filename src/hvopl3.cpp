@@ -1519,25 +1519,23 @@ uint32_t render(Chip &c, const Output &o, uint32_t frames) {
 }
 
 uint32_t play(Chip *chips, uint32_t nchips, const uint32_t *records, size_t count, const Output &o, Rate rate, uint32_t flags) {
-	// PLAY_HVO2: the records are HVO2's (docs/TRACE-FORMAT.md): the chip's three high bits in 31..29,
+	// HVO2 records (docs/TRACE-FORMAT.md): the chip's two low bits in 5..4 and three high bits in 31..29,
 	// SENDS' chorus in 14..11 and 25..23, RUN's bit 22 for frames at the replay's own rate
-	const bool v2 = flags & PLAY_HVO2;
-	flags &= ~uint32_t(PLAY_HVO2);
 	uint32_t res = 0;
 	uint32_t at[32] = {};
 	const uint32_t scale = rate / 48000;
 	for (size_t i = 0; i < count; ++i) {
-		const uint32_t w = records[i], k = ((w >> 4) & 3) | (v2 ? (w >> 29) << 2 : 0u), addr = (w >> 6) & 0x1FF, d = (w >> 15) & 0xFF;
+		const uint32_t w = records[i], k = ((w >> 4) & 3) | (w >> 29) << 2, addr = (w >> 6) & 0x1FF, d = (w >> 15) & 0xFF;
 		if (k >= nchips) continue;
 		Chip &c = chips[k];
-		const uint32_t ch = v2 ? addr & 0x1F : addr;
+		const uint32_t ch = addr & 0x1F;
 		switch (w & 15) {
 		case 1: write(c, addr, uint8_t(d)); break;
 		case 2: set_pan(c, ch, uint8_t(d)); break;
-		case 3: set_sends(c, ch, uint8_t(d), uint8_t(v2 ? ((w >> 11) & 15) | ((w >> 23) & 7) << 4 : (w >> 23) & 0xFF)); break;
+		case 3: set_sends(c, ch, uint8_t(d), uint8_t(((w >> 11) & 15) | ((w >> 23) & 7) << 4)); break;
 		case 4: init(c, rate, flags); break;
 		case 5: {
-			const uint32_t n = ((w >> 6) & 0xFFFF) * (v2 && (w >> 22 & 1) ? 1 : scale);
+			const uint32_t n = ((w >> 6) & 0xFFFF) * ((w >> 22 & 1) ? 1 : scale);
 			const Output p = {o.dry + 2 * at[k], o.rev ? o.rev + 2 * at[k] : nullptr, o.cho ? o.cho + 2 * at[k] : nullptr, true};
 			res |= render(c, p, n);
 			at[k] += n;

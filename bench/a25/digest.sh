@@ -20,7 +20,7 @@ SRC=${SRC:-../../src}; TR=${TRACES:-../traces}; B=${BUILD:-build/digest}; mkdir 
 c++ -std=gnu++20 -O2 -w -ffp-contract=off -DHV_MORE -I$SRC -I.. ../vec/digest.cpp $SRC/hvopl3.cpp -o $B/host || exit 1
 $CX $FL -I$SRC -I.. -c ../vec/digest.cpp -o $B/digest.o && $CX $FL -I$SRC -I.. -c $SRC/hvopl3.cpp -o $B/hvopl3.o || exit 1
 one() {
-  t=$1; n=$(basename $t .hvo1); d=$(cd $(dirname $t) && pwd)/$(basename $t)
+  t=$1; n=$(basename $t .hvo2); d=$(cd $(dirname $t) && pwd)/$(basename $t)
   printf '.section .rodata\n.balign 4\n.globl trace_bin\n.globl trace_end\ntrace_bin:\n.incbin "%s"\ntrace_end:\n' $d > $B/$n.S
   $CX $FL -nostdlib -nostartfiles -T link.ld -Wl,--no-relax $REPO/emu/tests/crt0.S $B/$n.S $B/digest.o $B/hvopl3.o -o $B/$n.elf || { echo "$n NOLINK"; return; }
   e=$($REPO/emu/rv32emu --quiet --max-seconds ${EMU_SECS:-3000} $B/$n.elf 2>&1 | grep -E '^(48k|96k|hq|add|noclip|noclip.add|slow) ' | tr -d '\r' | tr '\n' ' ')
@@ -28,7 +28,7 @@ one() {
   if [ "$h" = "$e" ]; then echo "$n same $h"; else echo "$n DIFF host: $h a25: $e"; fi
 }
 rm -f $B/r.*; i=0
-for t in ${*:-$(ls $TR/*.hvo1)}; do one $t > $B/r.$i 2>&1 & i=$((i+1)); [ $((i%14)) = 0 ] && wait; done; wait
+for t in ${*:-$(ls $TR/*.hvo2)}; do one $t > $B/r.$i 2>&1 & i=$((i+1)); [ $((i%14)) = 0 ] && wait; done; wait
 cat $B/r.* | sort > $B/report.txt
 cat $B/report.txt
 ! grep -q -E "DIFF|NOLINK" $B/report.txt

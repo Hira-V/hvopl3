@@ -10,7 +10,7 @@
 //
 #include <stdint.h>
 #include <stddef.h>
-#include "../hvo1.hpp"
+#include "../hvo2.hpp"
 #include "../chip.hpp"
 
 #define UART_RXTX 0xe8002000u
@@ -38,33 +38,34 @@ static int32_t g_buf[3][2 * 512 * 2];
 
 int main() {
 	__libc_init_array();
-	hvo1::Trace t;
-	if (!t.open(trace_bin, size_t(trace_end - trace_bin))) { puts_("not HVO1\n"); return 1; }
+	hvo2::Trace t;
+	if (!t.open(trace_bin, size_t(trace_end - trace_bin))) { puts_(t.error); puts_("\n"); return 1; }
+	if (t.nchips > 4) { puts_("more than 4 chips\n"); return 1; }
 	BenchChip *c = CHIP;
 	if (!c) { puts_("no chip\n"); return 1; }
 	const uint32_t scale = c->rate() / 48000;
 	uint64_t ins = 0, frames0 = 0;
-	for (const hvo1::Rec *r = t.begin(); r != t.end(); ++r) {
+	for (const hvo2::Rec *r = t.begin(); r != t.end(); ++r) {
 		const uint32_t k = r->chip();
 		switch (r->op()) {
-		case hvo1::RESET: c->reset(k); break;
-		case hvo1::REG: c->write(k, r->addr(), uint8_t(r->data())); break;
-		case hvo1::PAN: c->pan(k, r->addr(), uint8_t(r->data())); break;
-		case hvo1::SENDS: c->sends(k, r->addr(), uint8_t(r->data()), uint8_t(r->data2())); break;
-		case hvo1::GAIN: c->gain(k, r->addr(), r->level()); break;
-		case hvo1::RUN: {
-			for (uint32_t left = r->frames() * scale; left;) {
+		case hvo2::RESET: c->reset(k); break;
+		case hvo2::REG: c->write(k, r->reg(), uint8_t(r->data())); break;
+		case hvo2::PAN: c->pan(k, r->channel(), uint8_t(r->data())); break;
+		case hvo2::SENDS: c->sends(k, r->channel(), uint8_t(r->data()), uint8_t(r->chorus())); break;
+		case hvo2::GAIN: c->gain(k, r->channel(), r->level()); break;
+		case hvo2::RUN: {
+			for (uint32_t left = r->frames(scale); left;) {
 				const uint32_t n = left < 512 ? left : 512;
 				const uint64_t c0 = instret();
 				c->render(k, g_buf[0], g_buf[1], g_buf[2], n);
 				ins += instret() - c0;
 				left -= n;
 			}
-			if (k == 0) frames0 += r->frames();
+			if (k == 0) frames0 += r->frames(scale);
 			break;
 		}
 		}
 	}
-	puts_(c->name()); puts_(" "); dec(ins); puts_(" insns, frames "); dec(frames0); puts_(", per frame "); dec(frames0 ? ins / frames0 : 0); puts_("\n");
+	puts_(c->name()); puts_(" "); dec(ins); puts_(" insns, frames "); dec(frames0 / scale); puts_(", per frame "); dec(frames0 ? ins * scale / frames0 : 0); puts_("\n");
 	return 0;
 }

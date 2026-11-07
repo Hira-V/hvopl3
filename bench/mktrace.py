@@ -4,15 +4,15 @@
 # SPDX-License-Identifier: BSD-3-Clause (see LICENSE.txt)
 # Hira-V: https://hira-v.com
 #
-"""mktrace.py -- synthetic HVO1 traces, each exercising one part of the YMF262 (or of our
+"""mktrace.py -- synthetic HVO2 traces, each exercising one part of the YMF262 (or of our
 extensions). Written for this project from the chip's public register map.
 
-    python3 -I mktrace.py OUTDIR          writes s_*.hvo1 (one chip, 48 kHz)
+    python3 -I mktrace.py OUTDIR          writes s_*.hvo2 (one chip, 48 kHz)
 
 Each test is a function below; its docstring says what it checks. Add tests freely."""
 import struct, sys, os
 
-MAGIC, VERSION = 0x314F5648, 1
+MAGIC, VERSION = 0x324F5648, 1   # HVO2 (docs/TRACE-FORMAT.md)
 REG, PAN, SENDS, RESET, RUN, GAIN = 1, 2, 3, 4, 5, 6
 RATE = 48000
 # operator register offsets of each channel's two slots (channel 0..8 of a bank)
@@ -22,8 +22,13 @@ class Trace:
     def __init__(self, flags=0):
         self.w = []; self.flags = flags
         self.rec(RESET, 0, 0, 0)
-    def rec(self, op, chip, a, d, d2=0):
-        self.w.append(op | chip << 4 | (a & 0x1FF) << 6 | (d & 0xFF) << 15 | (d2 & 0xFF) << 23)
+    def rec(self, op, chip, a, d, chorus=0):
+        # HVO2: the chip in 5..4 and 31..29; REG's register in 14..6, PAN/SENDS/GAIN's channel in 10..6;
+        # SENDS' chorus in 14..11 (bits 3..0) and 25..23 (bits 6..4)
+        w = op | (chip & 3) << 4 | (chip >> 2) << 29 | (d & 0xFF) << 15
+        w |= (a & 0x1FF) << 6 if op == REG else (a & 0x1F) << 6
+        if op == SENDS: w |= (chorus & 15) << 11 | (chorus >> 4 & 7) << 23
+        self.w.append(w)
     def reg(self, a, d): self.rec(REG, 0, a, d)
     def pan(self, ch, p): self.rec(PAN, 0, ch, p)
     def sends(self, ch, r, c): self.rec(SENDS, 0, ch, r, c)
@@ -272,6 +277,6 @@ if __name__ == '__main__':
     for f in TESTS:
         t = Trace(flags=1 if f is s_stereo else 0)
         f(t); t.run(256)
-        t.save(os.path.join(out, f.__name__ + '.hvo1'))
+        t.save(os.path.join(out, f.__name__ + '.hvo2'))
         frames = sum((w >> 6) & 0xFFFF for w in t.w if w & 15 == RUN)
         print('%-12s %6.1f s  %s' % (f.__name__, frames / RATE, f.__doc__.split('\n')[0]))

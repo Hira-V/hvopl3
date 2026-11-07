@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
-#include "hvo1.hpp"
+#include "hvo2.hpp"
 #include "hvopl3.hpp"
 #include "hvopl3_test.hpp"
 int main(int argc, char **argv) {
@@ -18,7 +18,9 @@ int main(int argc, char **argv) {
 	if (!f) return 1;
 	for (uint32_t x; fread(&x, 4, 1, f) == 1;) w.push_back(x);
 	fclose(f);
-	hvo1::Trace t; if (!t.open(w.data(), w.size())) return 1;
+	hvo2::Trace t;
+	if (!t.open(w.data(), w.size())) { fprintf(stderr, "native: %s: %s\n", argv[1], t.error); return 1; }
+	if (t.nchips > 4) { fprintf(stderr, "native: %s: %u chips; up to 4\n", argv[1], t.nchips); return 1; }
 	static hvopl3::Chip c[4];
 	for (auto &x : c) hvopl3::init_chip_rate(x);
 	const uint32_t seed = argc > 3 ? uint32_t(strtoul(argv[3], nullptr, 16)) : 0;   // tests: the noise's state
@@ -27,13 +29,13 @@ int main(int argc, char **argv) {
 	std::vector<int32_t> mix[4]; uint64_t pos[4] = {}; uint64_t q[4] = {};
 	std::vector<int32_t> buf(2 * 200000), r(2 * 200000), s(2 * 200000);
 	constexpr uint64_t HZ = 14318180, DEN = 288 * 48000ull;
-	for (const hvo1::Rec *p = t.begin(); p != t.end(); ++p) {
+	for (const hvo2::Rec *p = t.begin(); p != t.end(); ++p) {
 		const uint32_t k = p->chip();
 		switch (p->op()) {
-		case hvo1::RESET: hvopl3::init_chip_rate(c[k], nflags); if (seed) c[k].noise = seed; c[k].tick += tick0; break;
-		case hvo1::REG: hvopl3::write(c[k], p->addr(), uint8_t(p->data())); break;
-		case hvo1::RUN: {
-			q[k] += p->frames();
+		case hvo2::RESET: hvopl3::init_chip_rate(c[k], nflags); if (seed) c[k].noise = seed; c[k].tick += tick0; break;
+		case hvo2::REG: hvopl3::write(c[k], p->reg(), uint8_t(p->data())); break;
+		case hvo2::RUN: {
+			q[k] += p->frames(1);   // 48 kHz frames
 			const uint64_t until = q[k] * HZ / DEN;
 			const uint32_t n = uint32_t(until - pos[k]);
 			const hvopl3::Output o = {buf.data(), nullptr, nullptr, false};

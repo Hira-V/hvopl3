@@ -17,9 +17,10 @@ and that the samples do not depend on how a run is cut into `render` calls, in e
 
 ## Traces
 
-The bench replays **HVO1 traces**: register writes, extension calls and sample counts, recorded from
+The bench replays **HVO2 traces**: register writes, extension calls and sample counts, recorded from
 a player or written by hand ([TRACE-FORMAT.md](TRACE-FORMAT.md)). The scripts read them from
-`bench/traces/`.
+`bench/traces/`. An old HVO1 trace is refused, by its magic; `python3 -I tools/hvo1to2.py OLD.hvo1`
+converts it (to the same samples).
 
 ```sh
 mkdir -p bench/traces
@@ -30,7 +31,7 @@ python3 -I bench/mktrace.py bench/traces    # synthetic tests: envelopes, waves,
 
 ```sh
 make -C bench -j
-bench/build/play TRACE.hvo1 hvopl OUT       # writes OUT.dry.wav (+ .rev.wav, .cho.wav)
+bench/build/play TRACE.hvo2 hvopl OUT       # writes OUT.dry.wav (+ .rev.wav, .cho.wav)
 ```
 
 `play` renders a trace to 32-bit stereo WAV files and reports the time spent in `render`. Its chip

@@ -8,7 +8,7 @@
 //
 #include <stdint.h>
 #include <stddef.h>
-#include "../hvo1.hpp"
+#include "../hvo2.hpp"
 #include "hvopl3.hpp"
 #include "hvopl3_test.hpp"
 #ifdef HV_BARE
@@ -45,20 +45,20 @@ static void dec(uint32_t v) { char b[12]; int n = 0; do { b[n++] = char('0' + v 
 #endif
 static inline uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 // add: the dry output added to (a pattern already there), as play() does it.
-static void run(const hvo1::Trace &t, hvopl3::Rate rate, uint32_t flags, const char *label, bool add = false) {
+static void run(const hvo2::Trace &t, hvopl3::Rate rate, uint32_t flags, const char *label, bool add = false) {
 	const uint32_t scale = rate / 48000;
 	for (auto &x : chips) hvopl3::init(x, rate, flags);
 	uint32_t hd = 2166136261u, hb = 2166136261u;
-	for (const hvo1::Rec *r = t.begin(); r != t.end(); ++r) {
+	for (const hvo2::Rec *r = t.begin(); r != t.end(); ++r) {
 		hvopl3::Chip &c = chips[r->chip()];
 		switch (r->op()) {
-		case hvo1::RESET: hvopl3::init(c, rate, flags); break;
-		case hvo1::REG: hvopl3::write(c, r->addr(), uint8_t(r->data())); break;
-		case hvo1::PAN: hvopl3::set_pan(c, r->addr(), uint8_t(r->data())); break;
-		case hvo1::SENDS: hvopl3::set_sends(c, r->addr(), uint8_t(r->data()), uint8_t(r->data2())); break;
-		case hvo1::GAIN: hvopl3::set_gain(c, r->addr(), r->level()); break;
-		case hvo1::RUN:
-			for (uint32_t left = r->frames() * scale; left;) {
+		case hvo2::RESET: hvopl3::init(c, rate, flags); break;
+		case hvo2::REG: hvopl3::write(c, r->reg(), uint8_t(r->data())); break;
+		case hvo2::PAN: hvopl3::set_pan(c, r->channel(), uint8_t(r->data())); break;
+		case hvo2::SENDS: hvopl3::set_sends(c, r->channel(), uint8_t(r->data()), uint8_t(r->chorus())); break;
+		case hvo2::GAIN: hvopl3::set_gain(c, r->channel(), r->level()); break;
+		case hvo2::RUN:
+			for (uint32_t left = r->frames(scale); left;) {
 				const uint32_t n = left < 1024 ? left : 1024;
 				for (uint32_t i = 0; i < 2 * n; ++i) R[i] = C[i] = 0;
 				if (add) for (uint32_t i = 0; i < 2 * n; ++i) D[i] = int32_t(i * 2654435761u) >> 17;
@@ -80,16 +80,17 @@ static void run(const hvo1::Trace &t, hvopl3::Rate rate, uint32_t flags, const c
 	puts_(label); putc_(' '); hex(hd); putc_(' '); hex(hb); putc_('\n');
 }
 int main(int argc, char **argv) {
-	hvo1::Trace t;
+	hvo2::Trace t;
 #ifdef HV_BARE
 	(void)argc; (void)argv;
-	if (!t.open(trace_bin, size_t(trace_end - trace_bin))) { puts_("bad trace\n"); return 1; }
+	if (!t.open(trace_bin, size_t(trace_end - trace_bin))) { puts_(t.error); putc_('\n'); return 1; }
 #else
 	std::vector<uint32_t> w; FILE *f = fopen(argv[argc - 1], "rb"); if (!f) return 1;
 	for (uint32_t x; fread(&x, 4, 1, f) == 1;) w.push_back(x);
 	fclose(f);
-	if (!t.open(w.data(), w.size())) return 1;
+	if (!t.open(w.data(), w.size())) { puts_(t.error); putc_('\n'); return 1; }
 #endif
+	if (t.nchips > 4) { puts_("more than 4 chips\n"); return 1; }
 #ifndef HV_FLAGS
 #define HV_FLAGS 0
 #endif

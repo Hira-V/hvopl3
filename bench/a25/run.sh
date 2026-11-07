@@ -32,9 +32,9 @@ B=build/$NAME; mkdir -p $B ../results
 OBJS=
 for s in count.cpp $SRC; do o=$B/$(basename $s .cpp).o; $CX $FL "-DCHIP=$MK" -I.. $CHIPINC -I../../src -c $s -o $o; OBJS="$OBJS $o"; done
 R=../results/$NAME.a25.txt; [ $# -gt 0 ] && R=../results/$NAME.a25.some.txt; : > $R
-TRACES=${*:-$(ls ../traces/*.hvo1)}
+TRACES=${*:-$(ls ../traces/*.hvo2)}
 for t in $TRACES; do
-  n=$(basename $t .hvo1)
+  n=$(basename $t .hvo2)
   printf '.section .rodata\n.balign 4\n.globl trace_bin\n.globl trace_end\ntrace_bin:\n.incbin "%s"\ntrace_end:\n' $(cd $(dirname $t) && pwd)/$(basename $t) > $B/$n.S
   $CX $FL -nostartfiles -T link.ld -Wl,--no-relax $REPO/emu/tests/crt0.S $B/$n.S $OBJS -o $B/$n.elf
   echo "$n $($REPO/emu/rv32emu --quiet --max-seconds 1800 $B/$n.elf 2>&1 | grep 'insns')" | tee -a $R

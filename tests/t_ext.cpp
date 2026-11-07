@@ -11,6 +11,7 @@
 #include <initializer_list>
 #include "hvopl3.hpp"
 #include "hvopl3_test.hpp"
+#include "../bench/hvo2.hpp"
 using namespace hvopl3;
 static int fails = 0, checks = 0;
 #define CHECK(x, ...) do { ++checks; if (!(x)) { ++fails; printf("FAIL %s:%d %s: ", __FILE__, __LINE__, #x); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -292,7 +293,7 @@ static void t_mix() {
 	{ const Output o = {d, nullptr, nullptr, false}; render(c, o, M); }
 	CHECK(!memcmp(d, d2, sizeof d2), "a gain raised past the bound after it held: the slow path's bits");
 }
-// play(): the same samples as driving each call by hand, with the extensions in the stream.
+// play(): the same samples as driving each call by hand, with the extensions in the stream (HVO2 records).
 static void t_play() {
 	static Chip a[2], b[2];
 	static const uint32_t rec[] = {
@@ -300,7 +301,7 @@ static void t_play() {
 		1 | 0x23u << 6 | 0x21u << 15, 1 | 0x43u << 6, 1 | 0x63u << 6 | 0xF0u << 15, 1 | 0x83u << 6 | 0x0Fu << 15,
 		1 | 1u << 4 | 0x23u << 6 | 0x21u << 15, 1 | 1u << 4 | 0x43u << 6, 1 | 1u << 4 | 0x63u << 6 | 0xF0u << 15, 1 | 1u << 4 | 0x83u << 6 | 0x0Fu << 15,
 		1 | 0xC0u << 6 | 0x30u << 15, 1 | 1u << 4 | 0xC0u << 6 | 0x30u << 15,
-		2 | 0u << 6 | 20u << 15, 3 | 0u << 6 | 90u << 15 | 40u << 23, 6 | 0u << 6 | uint32_t(uint8_t(-4)) << 15,
+		2 | 0u << 6 | 20u << 15, 3 | 0u << 6 | 90u << 15 | (40u & 15) << 11 | (40u >> 4) << 23, 6 | 0u << 6 | uint32_t(uint8_t(-4)) << 15,
 		1 | 0xA0u << 6 | 0x44u << 15, 1 | 0xB0u << 6 | 0x32u << 15, 1 | 1u << 4 | 0xA0u << 6 | 0x10u << 15, 1 | 1u << 4 | 0xB0u << 6 | 0x36u << 15,
 		5 | 700u << 6, 5 | 1u << 4 | 700u << 6, 1 | 0xB0u << 6 | 0x12u << 15, 5 | 300u << 6, 5 | 1u << 4 | 300u << 6};
 	memset(D, 0, sizeof D); memset(R, 0, sizeof R); memset(C, 0, sizeof C);
@@ -315,16 +316,48 @@ static void t_play() {
 	write(b[0], 0xA0, 0x44); write(b[0], 0xB0, 0x32); write(b[1], 0xA0, 0x10); write(b[1], 0xB0, 0x36);
 	render(b[0], q, 700); render(b[1], q, 700); write(b[0], 0xB0, 0x12); render(b[0], q2, 300); render(b[1], q2, 300);
 	CHECK(!memcmp(D, d2, 8 * 1000) && !memcmp(R, r2, 8 * 1000) && !memcmp(C, c2, 8 * 1000), "play differs from by-hand");
-	// the layouts: HVO1's SENDS keeps chorus in 29..23 (bit 29 its top bit, not a chip's); HVO2 puts chip 31's
-	// high bits in 31..29 and chorus in 14..11 and 25..23
+	// the layout: chip 31's high bits in 31..29, chorus in 14..11 and 25..23
 	static Chip many[32];
-	const uint32_t v1[] = {4, 3 | 5u << 6 | 90u << 15 | 100u << 23};
-	play(many, 1, v1, 2, o, RATE_48K);
-	CHECK(many[0].cho_q[5] == (100u * 4096 + 63) / 127 && many[0].rev_q[5] == (90u * 4096 + 63) / 127, "HVO1: chorus 100 on chip 0");
 	const uint32_t k = 31, chorus = 100;
 	const uint32_t v2[] = {4 | (k & 3) << 4 | (k >> 2) << 29, 3 | (k & 3) << 4 | (k >> 2) << 29 | 5u << 6 | 90u << 15 | (chorus & 15) << 11 | (chorus >> 4) << 23};
-	play(many, 32, v2, 2, o, RATE_48K, PLAY_HVO2);
+	play(many, 32, v2, 2, o, RATE_48K);
 	CHECK(many[31].cho_q[5] == (100u * 4096 + 63) / 127 && many[31].rev_q[5] == (90u * 4096 + 63) / 127, "HVO2: chorus 100 on chip 31");
+	// play reads HVO2 only: an HVO1 SENDS (chorus 100 in 29..23, so bit 29 set) is not chip 0's chorus 100
+	for (Chip &x : many) init(x, RATE_48K);
+	const uint32_t v1[] = {4, 4 | 1u << 29, 3 | 5u << 6 | 90u << 15 | 100u << 23};
+	play(many, 32, v1, 3, o, RATE_48K);
+	CHECK(many[0].cho_q[5] == 0 && many[0].rev_q[5] == 0, "an HVO1 record is not read as HVO1: chip 0 untouched");
+	CHECK(many[4].rev_q[5] == (90u * 4096 + 63) / 127 && many[4].cho_q[5] != (100u * 4096 + 63) / 127, "... it is HVO2's chip 4");
+}
+// The bench's reader (bench/hvo2.hpp): HVO2 decoded field by field; HVO1 refused by its magic, naming the converter.
+static void t_reader() {
+	const uint32_t k = 29, chorus = 77;
+	const uint32_t f[] = {hvo2::MAGIC, 1, 48000, 3,
+		4 | (k & 3) << 4 | (k >> 2) << 29,
+		1 | (k & 3) << 4 | (k >> 2) << 29 | 0x1A5u << 6 | 0xC3u << 15,
+		2 | 17u << 6 | 127u << 15,
+		3 | (k & 3) << 4 | (k >> 2) << 29 | 9u << 6 | 90u << 15 | (chorus & 15) << 11 | (chorus >> 4) << 23,
+		6 | 3u << 6 | uint32_t(uint8_t(-32)) << 15,
+		5 | 1000u << 6, 5 | 1u << 4 | 1000u << 6 | 1u << 22};
+	hvo2::Trace t;
+	CHECK(t.open(f, sizeof f / 4) && !t.error, "an HVO2 trace opens");
+	const hvo2::Rec *r = t.begin();
+	CHECK(t.end() - r == 7 && t.flags() == 3 && t.nchips == 30, "records %d, flags %u, chips %u", int(t.end() - r), t.flags(), t.nchips);
+	CHECK(r[0].op() == hvo2::RESET && r[0].chip() == 29, "RESET chip %u", r[0].chip());
+	CHECK(r[1].op() == hvo2::REG && r[1].chip() == 29 && r[1].reg() == 0x1A5 && r[1].data() == 0xC3, "REG %u %x %x", r[1].chip(), r[1].reg(), r[1].data());
+	CHECK(r[2].op() == hvo2::PAN && r[2].chip() == 0 && r[2].channel() == 17 && r[2].data() == 127, "PAN");
+	CHECK(r[3].op() == hvo2::SENDS && r[3].chip() == 29 && r[3].channel() == 9 && r[3].data() == 90 && r[3].chorus() == 77, "SENDS %u %u %u %u", r[3].chip(), r[3].channel(), r[3].data(), r[3].chorus());
+	CHECK(r[4].op() == hvo2::GAIN && r[4].channel() == 3 && r[4].level() == -32, "GAIN");
+	CHECK(r[5].frames(1) == 1000 && r[5].frames(2) == 2000 && r[6].chip() == 1 && r[6].frames(2) == 1000, "RUN: 48 kHz frames scale, bit 22 frames do not");
+	uint32_t g[sizeof f / 4];
+	memcpy(g, f, sizeof f); g[0] = 0x314F5648u;   // the HVO1 magic
+	CHECK(!t.open(g, sizeof g / 4) && t.error && strstr(t.error, "HVO1") && strstr(t.error, "tools/hvo1to2.py"), "HVO1 refused, naming the converter: %s", t.error ? t.error : "(none)");
+	CHECK(t.begin() == t.end(), "a refused trace has no records");
+	g[0] = 0x12345678u;
+	CHECK(!t.open(g, sizeof g / 4) && t.error && !strstr(t.error, "HVO1"), "not a trace: %s", t.error ? t.error : "(none)");
+	memcpy(g, f, sizeof f); g[2] = 44100;
+	CHECK(!t.open(g, sizeof g / 4) && t.error, "another rate refused");
+	CHECK(!t.open(f, 3) && t.error, "a short header refused");
 }
 // A register write between calls is heard from the next sample in every mode, two voices at once (the RVV
 // high-quality lanes keep a voice's state from call to call: a write must drop it).
@@ -410,6 +443,7 @@ int main() {
 	t_cuts();
 	t_mix();
 	t_play();
+	t_reader();
 	t_hq_drums();
 	t_pan(); t_sends(); t_gain(); t_rules(); t_silent(); t_inaudible();
 	printf("t_ext: %d checks, %d failed\n", checks, fails);

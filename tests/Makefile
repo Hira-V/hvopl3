@@ -7,7 +7,7 @@ CXX ?= c++
 CXXFLAGS := -std=gnu++20 -O2 -g -Wall -Wextra -I../src
 DRV := ../drv/hvopl3_drv.cpp ../drv/hvopl3_drv.hpp ../drv/hvopl3_drv_tables.inc ../drv/hvopl3_drv_models.inc models_measured.inc models_combined.inc
 all: run
-build/t_ext: t_ext.cpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc
+build/t_ext: t_ext.cpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc ../bench/hvo2.hpp
 	@mkdir -p build
 	$(CXX) $(CXXFLAGS) t_ext.cpp ../src/hvopl3.cpp -o $@
 build/t_drv: t_drv.cpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc $(DRV)
@@ -23,6 +23,7 @@ build/t_drv4: t_drv.cpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables
 	$(CXX) $(CXXFLAGS) -ffp-contract=off -DT_DRV_QUICK -DHVOPL3_DRV_MAX_CHIPS=4 -I../drv t_drv.cpp ../src/hvopl3.cpp ../drv/hvopl3_drv.cpp -o $@
 run: build/t_ext build/t_drv build/t_drv_asan build/t_drv4
 	build/t_ext
+	python3 -I t_hvo1to2.py
 	build/t_drv
 	build/t_drv_asan
 	build/t_drv4

@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: BSD-3-Clause (see LICENSE.txt)
 // Hira-V: https://hira-v.com
 //
-// play -- replay an HVO1 trace into a chip and write what it makes.
-//   play TRACE.hvo1 CHIP OUTPREFIX       CHIP: hvopl | hvopl96 | hvoplhq | hvopl96hq | another linked in
+// play -- replay an HVO2 trace (up to 4 chips) into a chip and write what it makes.
+//   play TRACE.hvo2 CHIP OUTPREFIX       CHIP: hvopl | hvopl96 | hvoplhq | hvopl96hq | another linked in
 // Writes OUTPREFIX.dry.wav (int32 stereo; plus .rev/.cho when the chip has buses) at the chip's
 // rate, and prints the time spent in render() as a share of real time. On the A25 build
 // (-DHV_BARE, a25/run.sh) the trace is linked in and minstret is counted around render() instead.
@@ -15,7 +15,7 @@
 #include <chrono>
 #include <string>
 #include <vector>
-#include "hvo1.hpp"
+#include "hvo2.hpp"
 #include "chip.hpp"
 
 __attribute__((weak)) BenchChip *make_extra(const char *) { return nullptr; }
@@ -30,14 +30,15 @@ static void wav(const std::string &path, const std::vector<int32_t> &v, uint32_t
 }
 
 int main(int argc, char **argv) {
-	if (argc < 4) { std::fprintf(stderr, "play TRACE.hvo1 CHIP OUTPREFIX\n"); return 1; }
+	if (argc < 4) { std::fprintf(stderr, "play TRACE.hvo2 CHIP OUTPREFIX\n"); return 1; }
 	std::vector<uint32_t> words;
 	FILE *f = std::fopen(argv[1], "rb");
 	if (!f) { std::fprintf(stderr, "play: cannot open %s\n", argv[1]); return 1; }
 	for (uint32_t w; std::fread(&w, 4, 1, f) == 1;) words.push_back(w);
 	std::fclose(f);
-	hvo1::Trace t;
-	if (!t.open(words.data(), words.size())) { std::fprintf(stderr, "play: not an HVO1 trace\n"); return 1; }
+	hvo2::Trace t;
+	if (!t.open(words.data(), words.size())) { std::fprintf(stderr, "play: %s: %s\n", argv[1], t.error); return 1; }
+	if (t.nchips > 4) { std::fprintf(stderr, "play: %s: %u chips; the bench replays up to 4\n", argv[1], t.nchips); return 1; }
 	const std::string which = argv[2];
 	BenchChip *c = which == "hvopl" ? make_hvopl3(48000) : which == "hvopl96" ? make_hvopl3(96000) :
 	               which == "hvoplhq" ? make_hvopl3(48000, 7) : which == "hvopl96hq" ? make_hvopl3(96000, 7) :
@@ -49,16 +50,16 @@ int main(int argc, char **argv) {
 	for (auto &b : buf) b.resize(2 * 65536 * scale);
 	uint64_t cur[4] = {};
 	double spent = 0;
-	for (const hvo1::Rec *r = t.begin(); r != t.end(); ++r) {
+	for (const hvo2::Rec *r = t.begin(); r != t.end(); ++r) {
 		const uint32_t k = r->chip();
 		switch (r->op()) {
-		case hvo1::RESET: c->reset(k); break;
-		case hvo1::REG: c->write(k, r->addr(), uint8_t(r->data())); break;
-		case hvo1::PAN: c->pan(k, r->addr(), uint8_t(r->data())); break;
-		case hvo1::SENDS: c->sends(k, r->addr(), uint8_t(r->data()), uint8_t(r->data2())); break;
-		case hvo1::GAIN: c->gain(k, r->addr(), r->level()); break;
-		case hvo1::RUN: {
-			const uint32_t n = r->frames() * scale;
+		case hvo2::RESET: c->reset(k); break;
+		case hvo2::REG: c->write(k, r->reg(), uint8_t(r->data())); break;
+		case hvo2::PAN: c->pan(k, r->channel(), uint8_t(r->data())); break;
+		case hvo2::SENDS: c->sends(k, r->channel(), uint8_t(r->data()), uint8_t(r->chorus())); break;
+		case hvo2::GAIN: c->gain(k, r->channel(), r->level()); break;
+		case hvo2::RUN: {
+			const uint32_t n = r->frames(scale);
 			const auto t0 = std::chrono::steady_clock::now();
 			c->render(k, buf[0].data(), buf[1].data(), buf[2].data(), n);
 			spent += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

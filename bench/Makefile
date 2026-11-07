@@ -11,10 +11,10 @@ BUILD    ?= build
 CXXFLAGS := -O2 -g -std=gnu++20 -Wall -Wextra -I. -I../src $(EXTRA_FLAGS)
 SRC_HV   := $(wildcard ../src/*.cpp)
 all: $(BUILD)/play $(BUILD)/native $(BUILD)/mid2wav
-$(BUILD)/play: ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc play.cpp hvo1.hpp chip.hpp adapter_hvopl3.cpp $(SRC_HV) $(EXTRA_SRC)
+$(BUILD)/play: ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc play.cpp hvo2.hpp chip.hpp adapter_hvopl3.cpp $(SRC_HV) $(EXTRA_SRC)
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -w play.cpp adapter_hvopl3.cpp $(SRC_HV) $(EXTRA_SRC) -o $@
-$(BUILD)/native: native.cpp hvo1.hpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_test.hpp ../src/hvopl3_tables.inc
+$(BUILD)/native: native.cpp hvo2.hpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_test.hpp ../src/hvopl3_tables.inc
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) native.cpp ../src/hvopl3.cpp -o $@
 $(BUILD)/mid2wav: mid2wav.cpp ../tests/song.hpp ../src/hvopl3.cpp ../src/hvopl3.hpp ../src/hvopl3_tables.inc ../drv/hvopl3_drv.cpp ../drv/hvopl3_drv.hpp ../drv/hvopl3_drv_tables.inc

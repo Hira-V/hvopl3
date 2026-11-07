@@ -15,7 +15,7 @@ cd "$(dirname "$0")"; T=$(mktemp -d); bad=0; TG=${1:-x280}
 ONLY=; [ "$2" = --only ] && ONLY=$3   # --only K: plant K alone (internal: the pool's jobs)
 i=0
 TR=${TRACES:-../traces}
-TRACES="$TR/s_waves.hvo1 $TR/s_feedback.hvo1 $TR/s_4op.hvo1 $TR/s_lfo.hvo1 $TR/s_env.hvo1 $TR/s_rhythm.hvo1"
+TRACES="$TR/s_waves.hvo2 $TR/s_feedback.hvo2 $TR/s_4op.hvo2 $TR/s_lfo.hvo2 $TR/s_env.hvo2 $TR/s_rhythm.hvo2"
 try() { # name, file, sed expression[, t_ext[, more flags for this one]]
   i=$((i+1))
   if [ -z "$ONLY" ]; then echo $i >> $T/list; return; fi

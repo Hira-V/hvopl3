@@ -54,7 +54,7 @@ The float paths assume the default rounding mode (round to nearest, ties to even
 ## Version
 
 `src/hvopl3.hpp` defines the version: `HVOPL3_VERSION_MAJOR`, `HVOPL3_VERSION_MINOR` and
-`HVOPL3_VERSION_PATCH`, with `HVOPL3_VERSION` (the string, e.g. `"0.10.0"`) and
+`HVOPL3_VERSION_PATCH`, with `HVOPL3_VERSION` (the string, e.g. `"0.11.0"`) and
 `HVOPL3_VERSION_NUMBER` (major × 10000 + minor × 100 + patch) built from them. `hvopl3::version()`
 and `hvopl3_version()` return the compiled library's number. Releases are tagged `vMAJOR.MINOR.PATCH`
 to match.

@@ -100,7 +100,7 @@ flag.
 | `send3(drv, frame, status, a, b)` | The same, from bytes |
 | `render(drv, out, frames)` | Direct mode: the block, every chip summed into `out`. Returns `SOUNDED` if any chip made sound |
 | `render_stream(drv, records, capacity, count, frames)` | Stream mode: the block as HVO2 records (section 10). Returns the frames done |
-| `stream_reserve(drv)`, `chip_flags(drv)` | The least `capacity`, and the flags `hvopl3::play` must replay with (the chips' and `PLAY_HVO2`) |
+| `stream_reserve(drv)`, `chip_flags(drv)` | The least `capacity`, and the flags `hvopl3::play` must replay with (the chips') |
 | `set_percussion(drv, channel, on)` | The host's percussion flag: 1 on, 0 off, -1 back to MIDI's (section 5) |
 | `set_curve_tables(drv, vel, vol)` | The tables for `CURVE_TABLE` |
 | `attenuation(drv, vel, vol, expr, master)` | The curve's attenuation, in 0.75 dB steps (255 is silent) |
@@ -494,7 +494,7 @@ dry and both buses, on 1 to 32 chips, at 48 and 96 kHz, in high quality, with ha
 blocks split by a small buffer.
 
 - The chips get `RESET` records at the first block. The other set-up writes follow as `REG` records.
-- HVO2 gives the chip 5 bits (5..4 and 31..29), so 32 chips; `chip_flags()` includes `PLAY_HVO2`, which tells `play` the layout. At 96 kHz the runs set bit 22 (frames at the replay's rate).
+- HVO2 gives the chip 5 bits (5..4 and 31..29), so 32 chips; HVO2 is the only layout `play` reads. At 96 kHz the runs set bit 22 (frames at the replay's rate).
 - The driver keeps the `Chip`s given to `init` as **shadows**. It sends them every write and advances
   them with `hvopl3::advance`: keys and envelopes without synthesis. Their `active` bits drive its
   decisions exactly as the real chips' do, at a small fraction of a render's cost.

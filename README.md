@@ -90,10 +90,10 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 | `set_gain(chip, channel, level)` | Gain in 0.75 dB steps, -32 to +32 |
 | `set_flags(chip, flags)` | High-quality and output flags (below) |
 | `render(chip, output, frames)` | Render frames into the dry output (written, or added to) and the buses (added to). Returns `SOUNDED` if any voice made sound |
-| `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO1](docs/TRACE-FORMAT.md) command stream into up to 4 chips, or with `PLAY_HVO2` an HVO2 stream into up to 32 |
+| `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO2](docs/TRACE-FORMAT.md) command stream into up to 32 chips |
 | `advance(chip, frames)` | Keys and envelopes without samples: a shadow of a chip elsewhere |
 | `inaudible(chip, channel)` | True when a released voice can make no more sound (its heard operators 72 dB down): free it early |
-| `version()`, `version_string()` | The compiled library's version, e.g. `0.10.0` |
+| `version()`, `version_string()` | The compiled library's version, e.g. `0.11.0` |
 
 | Flag | |
 |---|---|
@@ -106,8 +106,8 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 A C ABI covers the same calls (`hvopl3_init`, `hvopl3_write`, `hvopl3_render`, ...), with
 `hvopl3_chip_size()` for callers that allocate the state themselves.
 
-The header's version is in `HVOPL3_VERSION` (`"0.10.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
-and `HVOPL3_VERSION_NUMBER` (`1000`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
+The header's version is in `HVOPL3_VERSION` (`"0.11.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
+and `HVOPL3_VERSION_NUMBER` (`1100`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
 with `version()` detects a header used with a different build of the library.
 
 ## The MIDI driver: drv/
@@ -158,8 +158,12 @@ A25), and counts instructions per frame: [docs/TESTING.md](docs/TESTING.md).
 
 ## Status
 
-0.10.0 adds the MIDI driver (`drv/`), the HVO2 trace format (up to 32 chips), `advance()` and
-`inaudible()`; the chip's samples are unchanged from 0.9.0.
+0.11.0 retires HVO1: HVO2 is the one trace format, and `play` reads it without a flag (`PLAY_HVO2`
+is gone). Old HVO1 files convert with `tools/hvo1to2.py`, to the same samples. The chip's samples are
+unchanged from 0.10.0.
+
+0.10.0 added the MIDI driver (`drv/`), the HVO2 trace format (up to 32 chips), `advance()` and
+`inaudible()`.
 
 Bit-exact on every target under emulation, in chip mode and in every high-quality mode. Cycle
 measurements on hardware boards are in progress. The C920 build is checked by compiling it, since
@@ -173,7 +177,7 @@ no available emulator runs RVV 0.7.1.
 | `drv/` | The MIDI driver (optional), its tables and DMXOPL3's bank |
 | `tests/` | Unit tests and their planted errors |
 | `bench/` | Trace player, comparison tools, vector and A25 test harnesses |
-| `tools/` | Table generators |
+| `tools/` | Table generators, and `hvo1to2.py` (old HVO1 traces to HVO2) |
 | `docs/` | [Building](docs/BUILDING.md), [testing](docs/TESTING.md), [performance](docs/PERFORMANCE.md), [design](docs/DESIGN.md), [trace format](docs/TRACE-FORMAT.md), [the MIDI driver](docs/DRIVER.md) |
 
 ## License

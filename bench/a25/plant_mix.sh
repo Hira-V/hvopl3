@@ -9,7 +9,7 @@
 #
 cd "$(dirname "$0")"; T=$(mktemp -d); bad=0
 TR=${TRACES:-../traces}
-TRACES="$TR/s_stereo.hvo1 $TR/s_full.hvo1 $TR/s_rhythm.hvo1 $TR/s_4op.hvo1 $TR/b_nes_netopia_mix.hvo1"   # the song: many voices send
+TRACES="$TR/s_stereo.hvo2 $TR/s_full.hvo2 $TR/s_rhythm.hvo2 $TR/s_4op.hvo2 $TR/b_nes_netopia_mix.hvo2"   # the song: many voices send
 try() { # name, sed expression (on hvopl3_dsp.inc)
   rm -rf $T/src; cp -R ../../src $T/src
   sed "$2" ../../src/hvopl3_dsp.inc > $T/src/hvopl3_dsp.inc
