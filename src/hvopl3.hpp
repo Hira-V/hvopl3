@@ -13,7 +13,7 @@
 // The version, semantic (major.minor.patch). HVOPL3_VERSION_NUMBER orders as an integer
 // (major * 10000 + minor * 100 + patch); version() returns the compiled library's, to compare.
 #define HVOPL3_VERSION_MAJOR 0
-#define HVOPL3_VERSION_MINOR 9
+#define HVOPL3_VERSION_MINOR 10
 #define HVOPL3_VERSION_PATCH 0
 #define HVOPL3_VERSION_NUMBER (HVOPL3_VERSION_MAJOR * 10000 + HVOPL3_VERSION_MINOR * 100 + HVOPL3_VERSION_PATCH)
 #define HVOPL3_STR_(x) #x
@@ -44,6 +44,7 @@ struct Output {
 };
 
 enum : uint32_t { SOUNDED = 1 };  // render's result: a voice made sound; if not, nothing was added
+enum : uint32_t { PLAY_HVO2 = 1u << 29 };   // play()'s flags: the records are HVO2's (up to 32 chips), not HVO1's
 
 // One chip's whole state, flat: structure of arrays (docs/DESIGN.md).
 struct Chip {
@@ -118,7 +119,7 @@ struct Chip {
 };
 
 uint32_t version();          // the library's HVOPL3_VERSION_NUMBER: differs from the header's on a mismatch
-const char *version_string();  // the library's HVOPL3_VERSION, e.g. "0.9.0"
+const char *version_string();  // the library's HVOPL3_VERSION, e.g. "0.10.0"
 
 void init(Chip &, Rate, uint32_t flags = 0);
 void write(Chip &, uint32_t reg, uint8_t value);   // 0x000..0x1FF, in force at the next sample
@@ -128,9 +129,20 @@ void set_gain(Chip &, uint32_t channel, int8_t level);                    // 0.7
 void set_flags(Chip &, uint32_t flags);
 uint32_t render(Chip &, const Output &, uint32_t frames);
 // One command stream for every target: HVO1 records (register writes, extensions, resets, runs; the
-// format is docs/TRACE-FORMAT.md's) applied in order to up to 4 chips, each chip adding to
-// the Output from its own timeline's position. The caller clears dry and the buses.
+// format is docs/TRACE-FORMAT.md's) applied in order to up to 4 chips, or with PLAY_HVO2 in `flags`
+// HVO2 records to up to 32, each chip adding to the Output from its own timeline's position. The
+// caller clears dry and the buses. `flags` but PLAY_HVO2 are the chips' (RESET records).
 uint32_t play(Chip *chips, uint32_t nchips, const uint32_t *records, size_t count, const Output &, Rate, uint32_t flags = 0);
+// Time, keys and envelopes for n frames without making samples: afterwards `active` and the envelopes
+// are as render(n) leaves them. For a shadow of a chip that renders elsewhere (the MIDI driver's stream).
+void advance(Chip &, uint32_t frames);
+// The voice on channel `channel` (a 4-op pair: its first channel) can make no more sound until it is
+// keyed again or its registers change: every operator it is heard through (its connection's carriers)
+// is keyed off, in its release, and at least as attenuated as the renderer's silence (72 dB: there a
+// full-scale operator's output is below one unit, and render() skips the voice whole). Its output is
+// exactly zero from here on, tremolo or not, though `active` may still say it sounds (that waits for
+// the envelope's end, 96 dB). Rhythm-mode voices: false.
+bool inaudible(const Chip &, uint32_t channel);
 
 }  // namespace hvopl3
 
@@ -145,4 +157,5 @@ void hvopl3_set_sends(void *chip, uint32_t channel, uint8_t reverb, uint8_t chor
 void hvopl3_set_gain(void *chip, uint32_t channel, int8_t level);
 void hvopl3_set_flags(void *chip, uint32_t flags);
 uint32_t hvopl3_render(void *chip, int32_t *dry, int32_t *rev, int32_t *cho, int add_dry, uint32_t frames);
+int hvopl3_inaudible(const void *chip, uint32_t channel);
 }

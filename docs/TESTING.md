@@ -69,3 +69,18 @@ These build with the Andes GCC (`ANDES=`, default `~/opt/andes-rv32imafdc`) and 
 Hira-V emulator, `rv32emu`, which models each Andes DSP instruction. They expect this repository to
 be checked out inside [Hira-V](https://hira-v.com), where they find `emu/rv32emu`. The emulator
 counts instructions, not cycles.
+
+## The MIDI driver
+
+```sh
+make -C tests                 # t_drv and t_drv_asan (under the sanitizers) beside t_ext
+sh tests/plant_drv.sh         # planted errors in drv/hvopl3_drv.cpp; every one must be caught
+sh bench/vec/drv.sh           # tests/song.hpp with DMXOPL3, six set-ups, on each qemu target vs the host
+sh bench/a25/drv.sh           # the same on the A25, and the driver's instructions a frame apart from the chips'
+EVENTS=F sh bench/a25/drv.sh  # ... and a real song's 8 s (bench/build/mid2wav SONG.mid OUT.wav --dump F --dump-from S)
+```
+
+`bench/build/mid2wav SONG.mid OUT.wav` (make -C bench) renders a Standard MIDI File through the driver to
+a WAV for listening: `--bank`, `--levels` (a `kGmLevels` / `kGmKits` C table), `--chips`, `--96k`, `--hq`,
+`--hard-pan`, `--linear`, `--stream`, `--buses`. MIDI files and WAVs are never committed.
+docs/DRIVER.md section 12 lists what t_drv checks.

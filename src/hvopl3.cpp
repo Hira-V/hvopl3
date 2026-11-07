@@ -1519,30 +1519,71 @@ uint32_t render(Chip &c, const Output &o, uint32_t frames) {
 }
 
 uint32_t play(Chip *chips, uint32_t nchips, const uint32_t *records, size_t count, const Output &o, Rate rate, uint32_t flags) {
+	// PLAY_HVO2: the records are HVO2's (docs/TRACE-FORMAT.md): the chip's three high bits in 31..29,
+	// SENDS' chorus in 14..11 and 25..23, RUN's bit 22 for frames at the replay's own rate
+	const bool v2 = flags & PLAY_HVO2;
+	flags &= ~uint32_t(PLAY_HVO2);
 	uint32_t res = 0;
-	uint32_t at[4] = {0, 0, 0, 0};
+	uint32_t at[32] = {};
 	const uint32_t scale = rate / 48000;
 	for (size_t i = 0; i < count; ++i) {
-		const uint32_t w = records[i], k = (w >> 4) & 3, addr = (w >> 6) & 0x1FF, d = (w >> 15) & 0xFF;
+		const uint32_t w = records[i], k = ((w >> 4) & 3) | (v2 ? (w >> 29) << 2 : 0u), addr = (w >> 6) & 0x1FF, d = (w >> 15) & 0xFF;
 		if (k >= nchips) continue;
 		Chip &c = chips[k];
+		const uint32_t ch = v2 ? addr & 0x1F : addr;
 		switch (w & 15) {
 		case 1: write(c, addr, uint8_t(d)); break;
-		case 2: set_pan(c, addr, uint8_t(d)); break;
-		case 3: set_sends(c, addr, uint8_t(d), uint8_t((w >> 23) & 0xFF)); break;
+		case 2: set_pan(c, ch, uint8_t(d)); break;
+		case 3: set_sends(c, ch, uint8_t(d), uint8_t(v2 ? ((w >> 11) & 15) | ((w >> 23) & 7) << 4 : (w >> 23) & 0xFF)); break;
 		case 4: init(c, rate, flags); break;
 		case 5: {
-			const uint32_t n = ((w >> 6) & 0xFFFF) * scale;
+			const uint32_t n = ((w >> 6) & 0xFFFF) * (v2 && (w >> 22 & 1) ? 1 : scale);
 			const Output p = {o.dry + 2 * at[k], o.rev ? o.rev + 2 * at[k] : nullptr, o.cho ? o.cho + 2 * at[k] : nullptr, true};
 			res |= render(c, p, n);
 			at[k] += n;
 			break;
 		}
-		case 6: set_gain(c, addr, int8_t(d)); break;
+		case 6: set_gain(c, ch, int8_t(d)); break;
 		default: break;
 		}
 	}
 	return res;
+}
+
+// Time, keys and envelopes, as render takes them, without making a sample: a chip's `active` bits and
+// envelope state after advance(n) are render(n)'s. Phases, LFOs and feedback are not kept: a chip
+// advanced is a shadow (a driver's, of a chip elsewhere), not one to render from.
+void advance(Chip &c, uint32_t frames) {
+	if (c.key_dirty[0] | c.key_dirty[1]) apply_keys(c);
+	const uint32_t end = c.now + frames;
+	for (uint32_t m = c.active; m; m &= m - 1) {
+		const uint32_t ch = lowest_bit(m);
+		while ((c.active >> ch & 1) && int32_t(c.next_event[ch] - end) < 0) voice_event(c, ch, c.next_event[ch]);
+	}
+	advance_time(c, frames);
+}
+
+bool inaudible(const Chip &c, uint32_t ch) {
+	if (ch >= CHANNELS) return false;
+	uint8_t o[4];
+	uint32_t heard;
+	if (c.kind[ch] == K_4OP) {
+		o[0] = uint8_t(2 * ch); o[1] = uint8_t(2 * ch + 1); o[2] = uint8_t(2 * ch + 6); o[3] = uint8_t(2 * ch + 7);
+		static constexpr uint8_t HEARD[4] = {0x8, 0x9, 0xA, 0xD};
+		heard = HEARD[(c.r_c0[ch] & 1) | (c.r_c0[ch + 3] & 1) << 1];
+	} else if (c.kind[ch] == K_2OP) {
+		o[0] = uint8_t(2 * ch); o[1] = uint8_t(2 * ch + 1);
+		heard = (c.r_c0[ch] & 1) ? 3u : 2u;
+	} else {
+		return false;
+	}
+	for (uint32_t j = 0; j < 4; ++j) {
+		if (!(heard >> j & 1)) continue;
+		const uint32_t i = o[j];
+		if (c.keyed[i] || c.state[i] != RELEASE || (c.key_dirty[i / 32] >> (i & 31) & 1)) return false;
+		if (uint32_t(c.env[i]) + c.base[i] < (QUIET >> 2)) return false;   // the tremolo only adds to it
+	}
+	return true;
 }
 
 }  // namespace hvopl3
@@ -1557,6 +1598,7 @@ void hvopl3_set_pan(void *c, uint32_t ch, uint8_t p) { hvopl3::set_pan(*static_c
 void hvopl3_set_sends(void *c, uint32_t ch, uint8_t r, uint8_t s) { hvopl3::set_sends(*static_cast<hvopl3::Chip *>(c), ch, r, s); }
 void hvopl3_set_gain(void *c, uint32_t ch, int8_t l) { hvopl3::set_gain(*static_cast<hvopl3::Chip *>(c), ch, l); }
 void hvopl3_set_flags(void *c, uint32_t f) { hvopl3::set_flags(*static_cast<hvopl3::Chip *>(c), f); }
+int hvopl3_inaudible(const void *c, uint32_t ch) { return hvopl3::inaudible(*static_cast<const hvopl3::Chip *>(c), ch) ? 1 : 0; }
 uint32_t hvopl3_render(void *c, int32_t *d, int32_t *r, int32_t *s, int add, uint32_t n) {
 	const hvopl3::Output o = {d, r, s, add != 0};
 	return hvopl3::render(*static_cast<hvopl3::Chip *>(c), o, n);

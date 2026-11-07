@@ -315,6 +315,16 @@ static void t_play() {
 	write(b[0], 0xA0, 0x44); write(b[0], 0xB0, 0x32); write(b[1], 0xA0, 0x10); write(b[1], 0xB0, 0x36);
 	render(b[0], q, 700); render(b[1], q, 700); write(b[0], 0xB0, 0x12); render(b[0], q2, 300); render(b[1], q2, 300);
 	CHECK(!memcmp(D, d2, 8 * 1000) && !memcmp(R, r2, 8 * 1000) && !memcmp(C, c2, 8 * 1000), "play differs from by-hand");
+	// the layouts: HVO1's SENDS keeps chorus in 29..23 (bit 29 its top bit, not a chip's); HVO2 puts chip 31's
+	// high bits in 31..29 and chorus in 14..11 and 25..23
+	static Chip many[32];
+	const uint32_t v1[] = {4, 3 | 5u << 6 | 90u << 15 | 100u << 23};
+	play(many, 1, v1, 2, o, RATE_48K);
+	CHECK(many[0].cho_q[5] == (100u * 4096 + 63) / 127 && many[0].rev_q[5] == (90u * 4096 + 63) / 127, "HVO1: chorus 100 on chip 0");
+	const uint32_t k = 31, chorus = 100;
+	const uint32_t v2[] = {4 | (k & 3) << 4 | (k >> 2) << 29, 3 | (k & 3) << 4 | (k >> 2) << 29 | 5u << 6 | 90u << 15 | (chorus & 15) << 11 | (chorus >> 4) << 23};
+	play(many, 32, v2, 2, o, RATE_48K, PLAY_HVO2);
+	CHECK(many[31].cho_q[5] == (100u * 4096 + 63) / 127 && many[31].rev_q[5] == (90u * 4096 + 63) / 127, "HVO2: chorus 100 on chip 31");
 }
 // A register write between calls is heard from the next sample in every mode, two voices at once (the RVV
 // high-quality lanes keep a voice's state from call to call: a write must drop it).
@@ -340,6 +350,60 @@ static void t_version() {
 	CHECK(HVOPL3_VERSION_MINOR < 100 && HVOPL3_VERSION_PATCH < 100, "the number's fields overlap");
 }
 
+// inaudible(): a released voice reported so before its envelope ends (active still set), and from
+// then on exactly silent -- FM and additive, 2-op and 4-op, plain and high quality, at +24 dB of gain,
+// with tremolo.
+static void t_inaudible() {
+	for (uint32_t flags : {0u, uint32_t(HQ_PHASE | HQ_ENVELOPE | HQ_MODULATION | NO_CLIP)})
+		for (uint32_t kind = 0; kind < 3; ++kind) {   // 0 FM 2-op, 1 additive 2-op, 2 4-op (FM-FM)
+			static Chip c;
+			start(c, flags);
+			if (kind == 2) write(c, 0x104, 1);
+			const uint32_t chans = kind == 2 ? 2 : 1;
+			for (uint32_t x = 0; x < chans; ++x)
+				for (uint32_t n = 0; n < 2; ++n) {
+					const uint32_t sl = slot(3 * x, n);
+					write(c, 0x20 + sl, 0xA1);                    // tremolo, sustained, x1
+					write(c, 0x40 + sl, uint8_t(n || kind == 1 ? 6 : 20));
+					write(c, 0x60 + sl, 0xF0); write(c, 0x80 + sl, 0x05);   // release rate 5
+				}
+			write(c, 0xBD, 0x80);                                 // deep tremolo
+			write(c, chr(0, 0xC0), uint8_t(0x30 | (kind == 1 ? 1 : 0)));
+			if (kind == 2) write(c, chr(3, 0xC0), 0x30);
+			write(c, chr(0, 0xA0), 0x44); write(c, chr(0, 0xB0), 0x32);
+			set_gain(c, 0, 32);
+			go(c, false);
+			CHECK(!inaudible(c, 0), "keyed: not inaudible");
+			write(c, chr(0, 0xB0), 0x12);                         // key off
+			uint32_t blocks = 0;
+			bool loud_before = false;
+			while (!inaudible(c, 0) && blocks < 4000) {
+				memset(R, 0, sizeof R);
+				const Output o = {D, nullptr, nullptr, false};
+				render(c, o, 64);
+				loud_before = false;
+				for (uint32_t i = 0; i < 128; ++i) loud_before = loud_before || D[i];
+				++blocks;
+			}
+			CHECK(blocks < 4000 && (c.active & 1), "kind %u, flags %x: inaudible after %u blocks, its envelope not ended (active)", kind, flags, blocks);
+			bool zero = true;
+			for (int b = 0; b < 40 && (c.active & 1); ++b) {
+				const Output o = {D, nullptr, nullptr, false};
+				render(c, o, 1024);
+				for (uint32_t i = 0; i < 2048; ++i) zero = zero && D[i] == 0;
+			}
+			CHECK(zero, "kind %u, flags %x: silent from then on, to its envelope's end", kind, flags);
+			(void)loud_before;
+		}
+	// a voice in a slow attack from silence: as quiet as that, but rising
+	static Chip c;
+	start(c);
+	voice(c, 0);
+	write(c, 0x60 + slot(0, 1), 0x10);                            // attack rate 1
+	go(c, false);
+	CHECK(!inaudible(c, 0), "a slow attack, still far down: not inaudible");
+}
+
 int main() {
 	t_version();
 	t_live();
@@ -347,7 +411,7 @@ int main() {
 	t_mix();
 	t_play();
 	t_hq_drums();
-	t_pan(); t_sends(); t_gain(); t_rules(); t_silent();
+	t_pan(); t_sends(); t_gain(); t_rules(); t_silent(); t_inaudible();
 	printf("t_ext: %d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

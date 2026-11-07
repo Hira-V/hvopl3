@@ -48,12 +48,13 @@ The float paths assume the default rounding mode (round to nearest, ties to even
 |---|---|
 | `HVOPL_TOUCH_FIRST` | Touches each output buffer before rendering into it. For cores whose prefetcher follows a single stream, such as the A25 |
 | `HVOPL_NO_DSP` | On a core with the Andes DSP extension, use the scalar path instead |
+| `HVOPL3_DRV_MAX_CHIPS` | The MIDI driver (`drv/`) only: the most chips a `Driver` drives, 1..32 (default 32). Its arrays are sized by it: on the A25 the `Driver` is 7.7 KB at 4, 20.5 KB at 16 and 37.7 KB at 32 (the host: 8.5, 23.9 and 44.5 KB) |
 | `HVOPL_NO_RTZ` | On RVV 1.0, convert floats the way the C920 must (it lacks round-toward-zero conversions), so its high-quality path can be tested under emulation |
 
 ## Version
 
 `src/hvopl3.hpp` defines the version: `HVOPL3_VERSION_MAJOR`, `HVOPL3_VERSION_MINOR` and
-`HVOPL3_VERSION_PATCH`, with `HVOPL3_VERSION` (the string, e.g. `"0.9.0"`) and
+`HVOPL3_VERSION_PATCH`, with `HVOPL3_VERSION` (the string, e.g. `"0.10.0"`) and
 `HVOPL3_VERSION_NUMBER` (major × 10000 + minor × 100 + patch) built from them. `hvopl3::version()`
 and `hvopl3_version()` return the compiled library's number. Releases are tagged `vMAJOR.MINOR.PATCH`
 to match.

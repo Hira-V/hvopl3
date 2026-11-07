@@ -90,8 +90,10 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 | `set_gain(chip, channel, level)` | Gain in 0.75 dB steps, -32 to +32 |
 | `set_flags(chip, flags)` | High-quality and output flags (below) |
 | `render(chip, output, frames)` | Render frames into the dry output (written, or added to) and the buses (added to). Returns `SOUNDED` if any voice made sound |
-| `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO1](docs/TRACE-FORMAT.md) command stream into up to four chips |
-| `version()`, `version_string()` | The compiled library's version, e.g. `0.9.0` |
+| `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO1](docs/TRACE-FORMAT.md) command stream into up to 4 chips, or with `PLAY_HVO2` an HVO2 stream into up to 32 |
+| `advance(chip, frames)` | Keys and envelopes without samples: a shadow of a chip elsewhere |
+| `inaudible(chip, channel)` | True when a released voice can make no more sound (its heard operators 72 dB down): free it early |
+| `version()`, `version_string()` | The compiled library's version, e.g. `0.10.0` |
 
 | Flag | |
 |---|---|
@@ -104,9 +106,36 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 A C ABI covers the same calls (`hvopl3_init`, `hvopl3_write`, `hvopl3_render`, ...), with
 `hvopl3_chip_size()` for callers that allocate the state themselves.
 
-The header's version is in `HVOPL3_VERSION` (`"0.9.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
-and `HVOPL3_VERSION_NUMBER` (`900`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
+The header's version is in `HVOPL3_VERSION` (`"0.10.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
+and `HVOPL3_VERSION_NUMBER` (`1000`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
 with `version()` detects a header used with a different build of the library.
+
+## The MIDI driver: drv/
+
+`drv/` is an optional MIDI driver that plays MIDI 1.0 on 1 to 32 hvopl3 chips (a build option: `-DHVOPL3_DRV_MAX_CHIPS=N`). It allocates voices
+(2-op, 4-op and pseudo-4-op), maps instruments from WOPL banks, and turns controllers into register
+writes and the mixer extensions. Its features:
+
+- General MIDI's level curve, and per-program level corrections;
+- percussion on any channel (GM2, GS, XG or the host);
+- sample-accurate timing, the same samples in any block size;
+- quiet voice stealing, and voices spread across the chips;
+- a command-stream mode that emits HVO2 records for chips elsewhere.
+
+Like the chip, it is freestanding, keeps its state in caller-owned structs, and gives the same samples
+on every target. On the A25 it costs 2-5% of the chips' own cost. DMXOPL3's General MIDI bank (MIT)
+is in `drv/banks/`.
+
+```cpp
+drv::Pool *pool = drv::pool_init(mem, drv::pool_bytes(16));
+drv::load_wopl(*pool, wopl, wopl_size);
+drv::Config cfg = drv::default_config(); cfg.chips = 4;
+drv::init(driver, *pool, chips, cfg);
+drv::send3(driver, frame, 0x90, 60, 100);            // Note On, at a frame of the next block
+drv::render(driver, out, 480);
+```
+
+The API, every policy and the measured speed: [docs/DRIVER.md](docs/DRIVER.md).
 
 ## Building
 
@@ -118,8 +147,9 @@ samples everywhere. Information on per-target flags, build options and memory us
 ## Testing
 
 ```sh
-make -C tests        # unit tests
-sh tests/plant.sh    # planted errors the tests must catch
+make -C tests          # unit tests: the chip and the driver
+sh tests/plant.sh      # planted errors the tests must catch
+sh tests/plant_drv.sh  # ... in the driver
 ```
 
 The bench replays recorded or synthetic register traces, checks every accelerated path against the
@@ -127,6 +157,9 @@ scalar build bit for bit (under qemu for the vector targets, and under Hira-V's 
 A25), and counts instructions per frame: [docs/TESTING.md](docs/TESTING.md).
 
 ## Status
+
+0.10.0 adds the MIDI driver (`drv/`), the HVO2 trace format (up to 32 chips), `advance()` and
+`inaudible()`; the chip's samples are unchanged from 0.9.0.
 
 Bit-exact on every target under emulation, in chip mode and in every high-quality mode. Cycle
 measurements on hardware boards are in progress. The C920 build is checked by compiling it, since
@@ -137,10 +170,11 @@ no available emulator runs RVV 0.7.1.
 | Path | |
 |---|---|
 | `src/` | The library |
+| `drv/` | The MIDI driver (optional), its tables and DMXOPL3's bank |
 | `tests/` | Unit tests and their planted errors |
 | `bench/` | Trace player, comparison tools, vector and A25 test harnesses |
-| `tools/` | Table generator |
-| `docs/` | [Building](docs/BUILDING.md), [testing](docs/TESTING.md), [performance](docs/PERFORMANCE.md), [design](docs/DESIGN.md), [trace format](docs/TRACE-FORMAT.md) |
+| `tools/` | Table generators |
+| `docs/` | [Building](docs/BUILDING.md), [testing](docs/TESTING.md), [performance](docs/PERFORMANCE.md), [design](docs/DESIGN.md), [trace format](docs/TRACE-FORMAT.md), [the MIDI driver](docs/DRIVER.md) |
 
 ## License
 

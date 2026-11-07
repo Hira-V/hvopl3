@@ -36,4 +36,6 @@ try "mix: combined send not rounded" 's/return (c \* q + 512) >> 10; }/return (c
 try "mix: a send not scaled" 's/if (o.rev \&\& c.rev_q\[ch\]) bus_sum(c, 0, bus, row, send_coef(cl, c.rev_q\[ch\]), send_coef(cr, c.rev_q\[ch\]), n);/if (o.rev \&\& c.rev_q[ch]) bus_sum(c, 0, bus, row, cl, cr, n);/'
 # the version
 try "version: the library's number not the header's" 's/uint32_t version() { return HVOPL3_VERSION_NUMBER; }/uint32_t version() { return HVOPL3_VERSION_NUMBER + 1; }/'
+try "inaudible: 6 dB early" 's/if (uint32_t(c.env\[i\]) + c.base\[i\] < (QUIET >> 2)) return false;/if (uint32_t(c.env[i]) + c.base[i] < (QUIET >> 2) - 64) return false;/'
+try "inaudible: a voice not in its release" 's/if (c.keyed\[i\] || c.state\[i\] != RELEASE || (c.key_dirty/if ((c.key_dirty/'
 rm -rf $T; exit $bad

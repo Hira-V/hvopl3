@@ -11,7 +11,7 @@
 # the A25's scalar path). Prints DIFF on a mismatch; exit 1 if any.
 #
 cd "$(dirname "$0")"
-REPO=$(cd ../../.. && pwd)
+REPO=${HIRAV:-$(d=$(pwd); while [ "$d" != / ] && [ ! -x "$d/emu/rv32emu" ]; do d=$(dirname "$d"); done; echo "$d")}   # Hira-V: HIRAV=, or the nearest folder above with emu/rv32emu
 ANDES=${ANDES:-$HOME/opt/andes-rv32imafdc}
 CX=$ANDES/bin/riscv32-unknown-elf-g++
 ISA=rv32i2p1_m2p0_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zca1p0_zcd1p0_zcf1p0_xandes5p0_xandescodense1p0_xandesperf1p0
@@ -22,7 +22,7 @@ $CX $FL -I$SRC -I.. -c ../vec/digest.cpp -o $B/digest.o && $CX $FL -I$SRC -I.. -
 one() {
   t=$1; n=$(basename $t .hvo1); d=$(cd $(dirname $t) && pwd)/$(basename $t)
   printf '.section .rodata\n.balign 4\n.globl trace_bin\n.globl trace_end\ntrace_bin:\n.incbin "%s"\ntrace_end:\n' $d > $B/$n.S
-  $CX $FL -nostdlib -nostartfiles -T link.ld -Wl,--no-relax ../../../emu/tests/crt0.S $B/$n.S $B/digest.o $B/hvopl3.o -o $B/$n.elf || { echo "$n NOLINK"; return; }
+  $CX $FL -nostdlib -nostartfiles -T link.ld -Wl,--no-relax $REPO/emu/tests/crt0.S $B/$n.S $B/digest.o $B/hvopl3.o -o $B/$n.elf || { echo "$n NOLINK"; return; }
   e=$($REPO/emu/rv32emu --quiet --max-seconds ${EMU_SECS:-3000} $B/$n.elf 2>&1 | grep -E '^(48k|96k|hq|add|noclip|noclip.add|slow) ' | tr -d '\r' | tr '\n' ' ')
   h=$($B/host $t | tr '\n' ' ')
   if [ "$h" = "$e" ]; then echo "$n same $h"; else echo "$n DIFF host: $h a25: $e"; fi
