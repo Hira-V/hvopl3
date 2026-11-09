@@ -11,7 +11,7 @@
 # the A25's scalar path). Prints DIFF on a mismatch; exit 1 if any.
 #
 cd "$(dirname "$0")"
-REPO=${HIRAV:-$(d=$(pwd); while [ "$d" != / ] && [ ! -x "$d/emu/rv32emu" ]; do d=$(dirname "$d"); done; echo "$d")}   # Hira-V: HIRAV=, or the nearest folder above with emu/rv32emu
+REPO=${HIRAV:-$(d=$(pwd); while [ "$d" != / ] && [ ! -x "$d/emu/rv32emu" ]; do d=$(dirname "$d"); done; [ "$d" = / ] && d=$HOME/devel/hira-v; echo "$d")}   # Hira-V: HIRAV=, else the nearest folder above with emu/rv32emu, else ~/devel/hira-v
 ANDES=${ANDES:-$HOME/opt/andes-rv32imafdc}
 CX=$ANDES/bin/riscv32-unknown-elf-g++
 ISA=rv32i2p1_m2p0_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zca1p0_zcd1p0_zcf1p0_xandes5p0_xandescodense1p0_xandesperf1p0

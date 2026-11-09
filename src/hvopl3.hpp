@@ -13,7 +13,7 @@
 // The version, semantic (major.minor.patch). HVOPL3_VERSION_NUMBER orders as an integer
 // (major * 10000 + minor * 100 + patch); version() returns the compiled library's, to compare.
 #define HVOPL3_VERSION_MAJOR 0
-#define HVOPL3_VERSION_MINOR 11
+#define HVOPL3_VERSION_MINOR 12
 #define HVOPL3_VERSION_PATCH 0
 #define HVOPL3_VERSION_NUMBER (HVOPL3_VERSION_MAJOR * 10000 + HVOPL3_VERSION_MINOR * 100 + HVOPL3_VERSION_PATCH)
 #define HVOPL3_STR_(x) #x
@@ -118,7 +118,7 @@ struct Chip {
 };
 
 uint32_t version();          // the library's HVOPL3_VERSION_NUMBER: differs from the header's on a mismatch
-const char *version_string();  // the library's HVOPL3_VERSION, e.g. "0.11.0"
+const char *version_string();  // the library's HVOPL3_VERSION, e.g. "0.12.0"
 
 void init(Chip &, Rate, uint32_t flags = 0);
 void write(Chip &, uint32_t reg, uint8_t value);   // 0x000..0x1FF, in force at the next sample

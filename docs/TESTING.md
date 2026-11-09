@@ -67,8 +67,9 @@ sh bench/a25/plant_mix.sh       # planted errors in the Andes DSP mix
 ```
 
 These build with the Andes GCC (`ANDES=`, default `~/opt/andes-rv32imafdc`) and run under the
-Hira-V emulator, `rv32emu`, which models each Andes DSP instruction. They expect this repository to
-be checked out inside [Hira-V](https://hira-v.com), where they find `emu/rv32emu`. The emulator
+Hira-V emulator, `rv32emu`, which models each Andes DSP instruction. They find `emu/rv32emu` in
+[Hira-V](https://hira-v.com): `HIRAV=` names its folder; otherwise the nearest folder above this
+repository that has `emu/rv32emu` (a checkout inside Hira-V), else `~/devel/hira-v`. The emulator
 counts instructions, not cycles.
 
 ## The MIDI driver
@@ -78,10 +79,12 @@ make -C tests                 # t_drv and t_drv_asan (under the sanitizers) besi
 sh tests/plant_drv.sh         # planted errors in drv/hvopl3_drv.cpp; every one must be caught
 sh bench/vec/drv.sh           # tests/song.hpp with DMXOPL3, six set-ups, on each qemu target vs the host
 sh bench/a25/drv.sh           # the same on the A25, and the driver's instructions a frame apart from the chips'
-EVENTS=F sh bench/a25/drv.sh  # ... and a real song's 8 s (bench/build/mid2wav SONG.mid OUT.wav --dump F --dump-from S)
+EVENTS=F sh bench/a25/drv.sh  # ... and a real song's 8 s (tools/build/render_opl3 --dump F --dump-from S SONG.mid OUT.wav)
 ```
 
-`bench/build/mid2wav SONG.mid OUT.wav` (make -C bench) renders a Standard MIDI File through the driver to
-a WAV for listening: `--bank`, `--levels` (a `kGmLevels` / `kGmKits` C table), `--chips`, `--96k`, `--hq`,
-`--hard-pan`, `--linear`, `--stream`, `--buses`. MIDI files and WAVs are never committed.
+`tools/build/render_opl3 SONG.mid OUT.wav` (make -C tools) renders a Standard MIDI File through the driver to
+a WAV for listening (`--help`: every option; docs/DRIVER.md section 12): the host's common options
+(`--rate 48000|96000`, `--format`, `--gain`, `--tail`, ...) and the driver's (`--bank`, `--levels`,
+`--chips`, `--hq`, `--hard-pan`, `--linear`, `--stream`, `--buses`, `--dump`). MIDI files and WAVs are
+never committed.
 docs/DRIVER.md section 12 lists what t_drv checks.

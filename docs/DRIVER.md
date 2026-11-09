@@ -520,14 +520,14 @@ blocks split by a small buffer.
 The figures are instructions per 48 kHz frame. "Driver alone" is everything in `render` except the
 chips' `hvopl3::render` calls (`bench/a25/drv.sh` counts them apart with `HVOPL3_DRV_CHIP_RENDER`).
 Songs A-D are real General MIDI files, not in the repository: 8 s of each from 60 s in
-(`mid2wav --dump F --dump-from 60`, then `EVENTS=F sh bench/a25/drv.sh`).
+(`render_opl3 --dump F --dump-from 60`, then `EVENTS=F sh bench/a25/drv.sh`).
 
 The target was at most 25% of the chips' cost for a busy General MIDI song. Per message the work is
 bounded: a hash lookup, the channel's own voices, and at most 32 entries of a voice list. Resets, All
 Sound Off and master volume touch every voice. Only channels whose state changed (bend, vibrato, a
 glide) are touched at the control period.
 
-On the host (`bench/build/mid2wav`), songs render at 0.6-1% of one core with two chips.
+On the host (`tools/build/render_opl3`), songs render at 0.6-1% of one core with two chips.
 
 ## 12. Tests
 
@@ -536,7 +536,7 @@ make -C tests              # t_ext (the chip), t_drv (the driver), t_drv_asan (u
 sh tests/plant_drv.sh      # 51 planted errors in the driver; every one must be caught
 sh bench/vec/drv.sh        # the test song's digests on x280, v128, t2, baby, rv64 under qemu; c920 built
 sh bench/a25/drv.sh        # the same on the A25 under rv32emu, and its instruction counts
-make -C bench && bench/build/mid2wav SONG.mid OUT.wav [--levels gm_levels.inc] [--chips N] ...
+make -C tools && tools/build/render_opl3 [--levels gm_levels.inc] [--chips N] ... SONG.mid OUT.wav
 ```
 
 `t_drv` checks each message's effect on the chip's registers and extension state. It covers:
@@ -556,5 +556,16 @@ make -C bench && bench/build/mid2wav SONG.mid OUT.wav [--levels gm_levels.inc] [
 - every volume model at 336 measured single-input points exactly, and at 226 combined points where it agrees with the measurements;
 - GS's per-drum settings: each, on a sounding note, map 2 apart, the reset rules.
 
-`bench/build/mid2wav` renders a Standard MIDI File given on its command line to a WAV, for listening.
-Never commit MIDI files or WAVs.
+`tools/build/render_opl3` (`make -C tools`) renders a Standard MIDI File given on its command line to a
+WAV, for listening. It is built on `tools/render/`, the same host as hvyxg's `render_yxg` (a copy of
+Hira-V's MIDI file reader and UMP interface, and a WAV writer), and is also the shortest example of the
+driver: `OplInstrument` puts it behind Hira-V's `midi::Instrument` (UMP messages at sample offsets, then
+the block; a System Reset as GM System On). Common options: `--rate 48000|96000`, `--format
+f32|s16|s24` (default 32-bit float), `--gain DB`, `--tail SECONDS`, `--solo CH`, `--base-level` (a
+dual-mode file's channels 13-16 too), `--quiet`. The driver's: `--bank FILE.wopl`, `--levels FILE`
+(a C source with a `kGmLevels[128]` table and `{kit, {128 values}}` kit tables, as Hira-V's
+`gm_levels.inc`), `--chips N` (default 2), `--hq`, `--hard-pan`, `--linear`, `--no-corrections`,
+`--no-restrike`, `--stream` (through the HVO2 stream and `hvopl3::play`: the same samples), `--buses`
+(also OUT.rev.wav and OUT.cho.wav) and `--dump` / `--dump-from` (messages for the A25 count). Event
+times are the reader's whole microseconds, each played on its nearest sample. Never commit MIDI files
+or WAVs.

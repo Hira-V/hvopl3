@@ -24,7 +24,7 @@ static void putc_(char c) { while (*(volatile uint32_t *)0xe8002004u) {} *(volat
 static void putc_(char c) { *(volatile uint8_t *)0x10000000 = uint8_t(c); }
 #endif
 extern "C" const uint8_t wopl_bin[], wopl_end[];
-#ifdef HV_EVENTS   // a25/drv.sh EVENTS=: a real song's messages (mid2wav --dump) in place of the test song
+#ifdef HV_EVENTS   // a25/drv.sh EVENTS=: a real song's messages (render_opl3 --dump) in place of the test song
 extern "C" const song::Ev events_bin[], events_end[];
 #endif
 #else

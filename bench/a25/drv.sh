@@ -7,11 +7,11 @@
 # drv.sh -- the MIDI driver on the A25, under the repo's rv32emu (the Tang's flags, as digest.sh): the test
 # song's digests (bench/drv_digest.cpp) against the host build, then the instructions a 48 kHz frame spent
 # in the driver alone and in the chips' render (its calls counted apart: HVOPL3_DRV_CHIP_RENDER). EXTRA=:
-# more flags. EVENTS=FILE (bench/build/mid2wav SONG.mid OUT.wav --dump FILE): also count that song's first
+# more flags. EVENTS=FILE (tools/build/render_opl3 SONG.mid OUT.wav --dump FILE): also count that song's first
 # 8 seconds. Prints DIFF on a mismatch; exit 1 if any.
 #
 cd "$(dirname "$0")"
-REPO=${HIRAV:-$(d=$(pwd); while [ "$d" != / ] && [ ! -x "$d/emu/rv32emu" ]; do d=$(dirname "$d"); done; echo "$d")}   # Hira-V: HIRAV=, or the nearest folder above with emu/rv32emu
+REPO=${HIRAV:-$(d=$(pwd); while [ "$d" != / ] && [ ! -x "$d/emu/rv32emu" ]; do d=$(dirname "$d"); done; [ "$d" = / ] && d=$HOME/devel/hira-v; echo "$d")}   # Hira-V: HIRAV=, else the nearest folder above with emu/rv32emu, else ~/devel/hira-v
 ANDES=${ANDES:-$HOME/opt/andes-rv32imafdc}
 CX=$ANDES/bin/riscv32-unknown-elf-g++
 ISA=rv32i2p1_m2p0_f2p2_d2p2_c2p0_zicsr2p0_zifencei2p0_zca1p0_zcd1p0_zcf1p0_xandes5p0_xandescodense1p0_xandesperf1p0

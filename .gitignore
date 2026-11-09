@@ -2,6 +2,7 @@
 tests/build/
 bench/build/
 bench/a25/build/
+tools/build/
 # traces and results are local (docs/TESTING.md); old HVO1 traces kept beside them
 bench/traces/
 bench/hvo1-archive/

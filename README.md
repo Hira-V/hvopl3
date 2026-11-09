@@ -93,7 +93,7 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 | `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO2](docs/TRACE-FORMAT.md) command stream into up to 32 chips |
 | `advance(chip, frames)` | Keys and envelopes without samples: a shadow of a chip elsewhere |
 | `inaudible(chip, channel)` | True when a released voice can make no more sound (its heard operators 72 dB down): free it early |
-| `version()`, `version_string()` | The compiled library's version, e.g. `0.11.0` |
+| `version()`, `version_string()` | The compiled library's version, e.g. `0.12.0` |
 
 | Flag | |
 |---|---|
@@ -106,8 +106,8 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 A C ABI covers the same calls (`hvopl3_init`, `hvopl3_write`, `hvopl3_render`, ...), with
 `hvopl3_chip_size()` for callers that allocate the state themselves.
 
-The header's version is in `HVOPL3_VERSION` (`"0.11.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
-and `HVOPL3_VERSION_NUMBER` (`1100`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
+The header's version is in `HVOPL3_VERSION` (`"0.12.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
+and `HVOPL3_VERSION_NUMBER` (`1200`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
 with `version()` detects a header used with a different build of the library.
 
 ## The MIDI driver: drv/
@@ -158,6 +158,10 @@ A25), and counts instructions per frame: [docs/TESTING.md](docs/TESTING.md).
 
 ## Status
 
+0.12.0 adds `render_opl3`, a MIDI file renderer on the driver (`tools/`), sharing its host and
+Hira-V's MIDI file reader with hvyxg's `render_yxg`. The chip's and the driver's samples are
+unchanged from 0.11.0.
+
 0.11.0 retires HVO1: HVO2 is the one trace format, and `play` reads it without a flag (`PLAY_HVO2`
 is gone). Old HVO1 files convert with `tools/hvo1to2.py`, to the same samples. The chip's samples are
 unchanged from 0.10.0.
@@ -177,7 +181,7 @@ no available emulator runs RVV 0.7.1.
 | `drv/` | The MIDI driver (optional), its tables and DMXOPL3's bank |
 | `tests/` | Unit tests and their planted errors |
 | `bench/` | Trace player, comparison tools, vector and A25 test harnesses |
-| `tools/` | Table generators, and `hvo1to2.py` (old HVO1 traces to HVO2) |
+| `tools/` | `render_opl3` (a MIDI file through the driver to a WAV: `make -C tools`; `render/` its host, shared with hvyxg), table generators, and `hvo1to2.py` (old HVO1 traces to HVO2) |
 | `docs/` | [Building](docs/BUILDING.md), [testing](docs/TESTING.md), [performance](docs/PERFORMANCE.md), [design](docs/DESIGN.md), [trace format](docs/TRACE-FORMAT.md), [the MIDI driver](docs/DRIVER.md) |
 
 ## License
@@ -188,3 +192,8 @@ Copyright (C) 2026 Kevin H. Patterson. Released under the BSD 3-Clause License: 
 `src/hvopl3.cpp` adapts some tables and patterns from [ymfm](https://github.com/aaronsgiles/ymfm)
 by Aaron Giles (BSD 3-Clause), whose notice it carries, and follows Opal (public domain) for the
 vibrato steps.
+
+`tools/render/lib/` holds copies of [Hira-V](https://hira-v.com)'s instrument interface and
+Standard MIDI File reader (`software/lib/midi.hpp`, `midifile.*`), by the same author, released
+here under the same BSD 3-Clause License; their references to `docs/` and `lib/` are to Hira-V's
+tree. `tools/render/` is shared with [hvyxg](https://github.com/Hira-V/hvyxg)'s renderer.
