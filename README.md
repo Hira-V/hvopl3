@@ -22,18 +22,18 @@ facilitates acceleration and quality enhancements.
 - **One output on every target.** A scalar C++ reference, plus accelerated RISC-V paths for various
   hardware platforms supported by Hira-V. These include the Andes DSP extension (Gowin AE350 / Andes
   A25 core), RVV 1.0 (Tenstorrent Blackhole / SiFive X280 core), RVV 0.7.1 (SOPHGO/SOPHON SG2042 /
-  XuanTie/T-Head C920 core) and Zve32x.
-  Every accelerated path produces exactly the reference's samples, in every mode.
-- **Cost follows the music.** Silent voices are skipped without changing a sample; an idle chip costs
-  one test per call.
+  XuanTie/T-Head C920 core) and Zve32x. Every accelerated path produces exactly the reference's
+  samples, in every mode.
+- **Cost follows the music.** Silent voices are skipped without changing a sample; an idle chip
+  costs one test per call.
 - **Freestanding.** No allocation, no writable globals, nothing from the C library but `memset`.
   All state is one flat, caller-owned struct of 6 to 15 KB.
 
 ## Performance
 
 Measured against independent OPL3 emulators on the same music. Accuracy is the mean distance from
-Nuked OPL3's output over five songs. Speed is the mean cost over nine songs, four chips each. Methods
-and per-song figures are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+Nuked OPL3's output over five songs. Speed is the mean cost over nine songs, four chips each.
+Methods and per-song figures are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/accuracy-dark.svg">
@@ -93,7 +93,7 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 | `play(chips, n, records, count, output, rate, flags)` | Replay an [HVO2](docs/TRACE-FORMAT.md) command stream into up to 32 chips |
 | `advance(chip, frames)` | Keys and envelopes without samples: a shadow of a chip elsewhere |
 | `inaudible(chip, channel)` | True when a released voice can make no more sound (its heard operators 72 dB down): free it early |
-| `version()`, `version_string()` | The compiled library's version, e.g. `0.12.0` |
+| `version()`, `version_string()` | The compiled library's version, e.g. `0.12.1` |
 
 | Flag | |
 |---|---|
@@ -106,15 +106,15 @@ In `src/hvopl3.hpp`, namespace `hvopl3`:
 A C ABI covers the same calls (`hvopl3_init`, `hvopl3_write`, `hvopl3_render`, ...), with
 `hvopl3_chip_size()` for callers that allocate the state themselves.
 
-The header's version is in `HVOPL3_VERSION` (`"0.12.0"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
-and `HVOPL3_VERSION_NUMBER` (`1200`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
+The header's version is in `HVOPL3_VERSION` (`"0.12.1"`), `HVOPL3_VERSION_MAJOR`, `_MINOR`, `_PATCH`
+and `HVOPL3_VERSION_NUMBER` (`1201`, ordered as an integer). Comparing `HVOPL3_VERSION_NUMBER`
 with `version()` detects a header used with a different build of the library.
 
 ## The MIDI driver: drv/
 
-`drv/` is an optional MIDI driver that plays MIDI 1.0 on 1 to 32 hvopl3 chips (a build option: `-DHVOPL3_DRV_MAX_CHIPS=N`). It allocates voices
-(2-op, 4-op and pseudo-4-op), maps instruments from WOPL banks, and turns controllers into register
-writes and the mixer extensions. Its features:
+`drv/` is an optional MIDI driver that plays MIDI 1.0 on 1 to 32 hvopl3 chips (a build option:
+`-DHVOPL3_DRV_MAX_CHIPS=N`). It allocates voices (2-op, 4-op and pseudo-4-op), maps instruments from
+WOPL banks, and turns controllers into register writes and the mixer extensions. Its features:
 
 - General MIDI's level curve, and per-program level corrections;
 - percussion on any channel (GM2, GS, XG or the host);
@@ -122,9 +122,9 @@ writes and the mixer extensions. Its features:
 - quiet voice stealing, and voices spread across the chips;
 - a command-stream mode that emits HVO2 records for chips elsewhere.
 
-Like the chip, it is freestanding, keeps its state in caller-owned structs, and gives the same samples
-on every target. On the A25 it costs 2-5% of the chips' own cost. DMXOPL3's General MIDI bank (MIT)
-is in `drv/banks/`.
+Like the chip, it is freestanding, keeps its state in caller-owned structs, and gives the same
+samples on every target. On the A25 it costs 2-5% of the chips' own cost. DMXOPL3's General MIDI
+bank (MIT) is in `drv/banks/`.
 
 ```cpp
 drv::Pool *pool = drv::pool_init(mem, drv::pool_bytes(16));
@@ -136,6 +136,27 @@ drv::render(driver, out, 480);
 ```
 
 The API, every policy and the measured speed: [docs/DRIVER.md](docs/DRIVER.md).
+
+## The command-line renderer: render_opl3
+
+`render_opl3` renders a Standard MIDI File through the driver to a WAV (run it from the repository
+root, where it finds the default bank):
+
+```sh
+make -C tools                                          # builds tools/build/render_opl3
+tools/build/render_opl3 song.mid song.wav              # DMXOPL3's GS bank on two chips
+tools/build/render_opl3 --bank my.wopl --chips 4 --hq song.mid song.wav
+tools/build/render_opl3 --buses song.mid song.wav      # also song.rev.wav, song.cho.wav: the sends
+```
+
+It is also the shortest example of the driver. `tools/render_opl3.cpp` puts the driver and its chips
+behind Hira-V's instrument interface, `midi::Instrument`: one Universal MIDI Packet at a sample
+offset into the next block, then the block. `tools/render/` does the rest: it reads the file, plays
+each event at its sample, and writes the WAV. hvyxg's `render_yxg` is built on the same files, so
+the two take the same common options: `--rate`, `--format f32|s16|s24`, `--gain`, `--tail`,
+`--ports`, `--base-level`, `--solo`, `--quiet`. `tools/render/lib/` holds copies of Hira-V's UMP
+interface and MIDI file reader; neither project depends on Hira-V. `--stream` renders through the
+HVO2 record stream and `play` instead, to the same samples. `render_opl3 --help` lists every option.
 
 ## Building
 
@@ -158,16 +179,8 @@ A25), and counts instructions per frame: [docs/TESTING.md](docs/TESTING.md).
 
 ## Status
 
-0.12.0 adds `render_opl3`, a MIDI file renderer on the driver (`tools/`), sharing its host and
-Hira-V's MIDI file reader with hvyxg's `render_yxg`. The chip's and the driver's samples are
-unchanged from 0.11.0.
-
-0.11.0 retires HVO1: HVO2 is the one trace format, and `play` reads it without a flag (`PLAY_HVO2`
-is gone). Old HVO1 files convert with `tools/hvo1to2.py`, to the same samples. The chip's samples are
-unchanged from 0.10.0.
-
-0.10.0 added the MIDI driver (`drv/`), the HVO2 trace format (up to 32 chips), `advance()` and
-`inaudible()`.
+0.12.1 documents `render_opl3`, the command-line renderer added in 0.12.0, and starts a changelog.
+The chip's and the driver's samples are unchanged from 0.11.0. Earlier releases: [CHANGELOG.md](CHANGELOG.md).
 
 Bit-exact on every target under emulation, in chip mode and in every high-quality mode. Cycle
 measurements on hardware boards are in progress. The C920 build is checked by compiling it, since
